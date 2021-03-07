@@ -1,0 +1,70 @@
+@@ include standard.
+
+@@ def list:append. (@ list list2.
+  @e.list (list2 e))
+
+@@ def list:appendx. (@ list x.
+  list:append list (pair x))
+
+@@ def list:del1. (@ list.
+  @e.get1 (list e))
+
+@@ def list:deln. (@ list n.
+  @e.n get1 (list e))
+
+@@ def list:pop1. (@ list.
+  pair (list:del1 list)
+    (get0 (list #e)))
+
+@@ def list:popn. (Y @Y_pop list n dst.
+  (0? n) (pair list dst)
+    ((list:pop1 list) @list1 x.
+        (Y_pop (@@b.list1) (@@b.-- n)
+          (@@b.list:appendx dst x))))
+
+@@ def list:getSlice. (@ list i n.
+  get1 (list:popn
+      (@@b.list:deln list i) n 1))
+
+@@ def list:get. (@ list i.
+  get0 (list:deln list i #e))
+        
+@@ def list:setSlice. (@ list i n list2.
+  (list:popn list i 1) @sec0 sec1.
+    list:append sec1 (list:append list2
+        (list:deln sec0 n)))
+
+@@ def list:set. (@ list i x.
+  list:setSlice list i 1 (pair x))
+
+@@ def list:delSlice. (@ list i n.
+  list:setSlice list i n 1)
+
+@@ def list:del. (@ list i.
+  list:delSlice list i 1)
+
+@@ def list:insert. (@ list i list2.
+  list:setSlice list i 0 list2)
+
+@@ def list:insertx. (@ list i x.
+  list:insert list i (pair x))
+
+
+@@ def list:repeat. (@ list n.
+  n (list:append list) list)
+
+@@ def list:length. (@ list.
+  (Y @Y_len p n.
+    (nil? p) n
+      (Y_len (@@b.get1 p) (@@b.++ n)))
+    (list #nil) 0)
+
+
+@@ def list:applyAll. (@ func list.
+  (Y @Y_aA func p.
+    (nil? p) func
+      (p @p0 p1.Y_aA (func p0) p1))
+    func (list #nil))
+
+@@ def list:_print. (@ list.
+  list:applyAll [ (@@b.list) ])

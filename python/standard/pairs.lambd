@@ -1,0 +1,12 @@
+@@ include standard/logic.
+
+@@ def pair. (@ x y.
+  @f.f x y)
+@@ def get0. (@ p.
+  p #t)
+@@ def get1. (@ p.
+  p #f)
+@@ def #nil.
+  (@x.#t)
+@@ def nil?. (@ p.
+  p @x y.#f)

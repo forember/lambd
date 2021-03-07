@@ -1,0 +1,9 @@
+@@ include uint10.
+
+@@ def %243.
+  (@@list e.3 4 2)
+@@ def %89.
+  (@@list e.9 8)
+
+@@ def main.
+  (uint10:norm (uint10:add %243 %89))

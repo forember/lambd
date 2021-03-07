@@ -1,0 +1,16 @@
+@@ def #t.
+  (@t f.t)
+@@ def #f.
+  (@t f.f)
+@@ def 0?. (@ n.
+  n (@x.#f) #t)
+@@ def ?:. (@ p a b.
+  p a b)
+@@ def !. (@ p.
+  @a b.p b a)
+@@ def &. (@ p q.
+  p q p)
+@@ def |. (@ p q.
+  p p q)
+@@ def ^. (@ p q.
+  p (! q) q)

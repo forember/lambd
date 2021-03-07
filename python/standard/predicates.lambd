@@ -1,0 +1,13 @@
+@@ include standard/logic.
+@@ include standard/arithmetic.
+
+@@ def <=. (@ m n.
+  0? (- m n))
+@@ def >=. (@ m n.
+  <= n m)
+@@ def >. (@ m n.
+  ! (<= m n))
+@@ def <. (@ m n.
+  ! (>= m n))
+@@ def =. (@ m n.
+  & (<= m n) (>= m n))

@@ -1,0 +1,12 @@
+@@ def ++. (@ n.
+  @f x.f (n f x))
+@@ def +. (@ m n.
+  m ++ n)
+@@ def *. (@ m n.
+  @f.m (n f))
+@@ def **. (@ b e.
+  e b)
+@@ def --. (@ n.
+  @f x.n (@g h.h (g f)) (@u.x) (@u.u))
+@@ def -. (@ m n.
+  n -- m)

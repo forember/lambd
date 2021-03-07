@@ -1,0 +1,28 @@
+@@ include list.
+@@ include math.
+
+@@ def uint10:_extp. (@ p.
+  (nil? p) (pair 0 p) p)
+
+@@ def uint10:_norm. (Y @Y_norm p s c.
+  (& (nil? p) (0? c)) s
+    ((uint10:_extp p) @p0 p1.
+      (math:div (@@b.+ c p0) 10) @q r.
+        Y_norm (@@b.p1)
+          (@@b.list:appendx s r) q))
+
+@@ def uint10:norm. (@ n.
+  uint10:_norm (n #nil) 1 0)
+
+@@ def uint10:inc. (@ n.
+  (@e.(n e) @p0 p1.pair (++ p0) p1))
+
+@@ def uint10:add. (@ m n.
+  (Y @Y_add pm pn s.
+    (& (nil? pm) (nil? pn)) s
+      ((uint10:_extp pm) @pm0 pm1.
+        (uint10:_extp pn) @pn0 pn1.
+          Y_add (@@b.pm1) pn1
+            (@@b.list:appendx s
+              (@@b.+ pm0 pn0))))
+    (m #nil) (n #nil) 1)

@@ -1,0 +1,11 @@
+@@ include int.
+@@ include list.
+
+@@ def %-4.(pair #t 4)
+@@ def %3.(pair #f 3)
+
+@@ def main. (list:_print
+  (@@list e.
+    (int:add %-4 %3)
+    (int:mul %-4 %3)
+    (int:leq? %-4 %3)))

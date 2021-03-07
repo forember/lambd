@@ -1,0 +1,6 @@
+@@ include standard/arithmetic.
+@@ include standard/logic.
+@@ include standard/predicates.
+@@ include standard/pairs.
+@@ include standard/combinator.
+@@ churchnums.
