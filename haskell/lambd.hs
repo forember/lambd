@@ -33,6 +33,10 @@ parseParTree toks
     let beforeClose = takeWhile (/= ")") toks
     in  (map Tok beforeClose, length beforeClose)
 
+data Expression = Var String
+                | Appl Expression Expression
+                | Abst String Expression
+
 isVar :: String -> Bool
 isVar tok = (tok =~ "^[^[:space:]@.()]+$")
 
@@ -78,13 +82,10 @@ genListBody endName parExprs
 genList :: String -> [ParExpression] -> Expression
 genList endName parExprs = Abst endName (genListBody endName parExprs)
 
-data Expression = Var String
-                | Appl Expression Expression
-                | Abst String Expression
 parseParExpr :: [ParExpression] -> Expression
 -- Variable
 parseParExpr [Tok tok] =
-  if isVar(tok)
+  if isVar tok
     then Var tok
     else parseParExpr([Tok tok])
 -- Extensions
@@ -116,3 +117,6 @@ parseParExpr ((Tok "@"):(Tok "@"):(Tok "n"):tree) =
   let (extra, body) = splitTree "." tree
   in  parseParExpr body
 -- Abstraction
+parseParExpr ((Tok "@"):tree) =
+  let (extra, body) = splitTree "." tree
+  in  parseParExpr body -- TODO
