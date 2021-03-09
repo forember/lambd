@@ -22,11 +22,11 @@ def parse(s):
   toks = tokenize(s)
   tree = parse_partree(toks)
   return parse_parexpr(tree)
-  
+
 token_re = re.compile(r'[@.()]|[^\s@.()]+')
 def tokenize(s):
   return token_re.findall(s)
-    
+
 def parse_partree(toks):
   tree = [EXPR]
   branchdeque = deque()
@@ -41,14 +41,14 @@ def parse_partree(toks):
     else:
       branch.append(tok)
   return tree
-  
+
 var_re = re.compile(r'[^\s@.()]+$')
 def isvar(tok):
   try:
     return bool(var_re.match(tok))
   except:
     return False
-  
+
 def parse_parexpr(tree):
   #print(tree); print()
   if len(tree) == 2:
@@ -101,7 +101,7 @@ def parse_parexpr(tree):
       tree[1:-1] = [parse_parexpr([APPL] + tree[1:-1])]
   #print('return')
   return tree
-  
+
 def unparse(ast):
   s = ''
   type = ast[0]
@@ -121,7 +121,7 @@ def unparse(ast):
     else:
       s += unparse(ast[2])
   return s
-  
+
 num_re = re.compile( \
   r'(?P<nvb>^|(?<=[\s@.()]))?' \
   r'((?P<op>\()|(?P<start>^))' \
@@ -172,7 +172,7 @@ def restore_nums(s):
     s = s[:start_i] + r_str + s[end_i:]
     i += len(r_str)
   return s
-  
+
 def repr_ast(ast, indent=''):
   type = ast[0]
   if type == VAR:
@@ -181,15 +181,15 @@ def repr_ast(ast, indent=''):
     return '{indent}[ABST, {!r},\n{}\n{indent}]'.format(ast[1], repr_ast(ast[2], indent + ' '), indent=indent)
   elif type == APPL:
     return '{indent}[APPL,\n{},\n{}\n{indent}]'.format(repr_ast(ast[1], indent + ' '), repr_ast(ast[2], indent + ' '), indent=indent)
-  
+
 # = Semantics ============================
 
 class ReductionError (Exception):
   pass
-  
+
 class StructureError (ReductionError):
   pass
-  
+
 def FV(expr):
   type = expr[0]
   if type == VAR:
@@ -198,14 +198,14 @@ def FV(expr):
     return FV(expr[2]) - {expr[1]}
   elif type == APPL:
     return FV(expr[1]) | FV(expr[2])
-  
+
 def alpha_convert(abst, new_name):
   if abst[0] != ABST or new_name in FV(abst):
     raise StructureError
   abst[2] = substitute(abst[2], abst[1], [VAR, new_name])
   abst[1] = new_name
   return abst
-    
+
 def substitute(expr, name, rexpr, rfv=None):
   if rfv == None:
     if expr[0] == APPL and expr[1][0] == ABST and expr[1][1] in ('@b e', '@b b'):
@@ -227,13 +227,13 @@ def substitute(expr, name, rexpr, rfv=None):
         alpha_convert(expr, param + '_' + format(random.randint(0, 0xffff), '04X'))
       expr[2] = substitute(expr[2], name, rexpr, rfv)
   return expr
-  
+
 def beta_reduce(appl):
   if appl[0] != APPL or appl[1][0] != ABST:
     raise StructureError
   appl[:] = substitute(appl[1][2], appl[1][1], appl[2])
   return appl
-  
+
 def eta_convert(abst):
   if abst[0] != ABST or abst[2][0] != APPL or abst[1] != abst[2][2][1] or abst[1] in FV(abst[2][1]):
     raise StructureError
@@ -277,7 +277,7 @@ def reduce_full(expr, ct_cycles=False):
     return ct
 
 # = Testing ==============================
-  
+
 def main():
   #sys.setrecursionlimit(10000)
   if len(sys.argv) >= 2:
@@ -297,7 +297,7 @@ def main():
       {} CPU s
       {} s
 '''.format(cycles, cpu_t, t))
-  
+
 if __name__ == '__main__':
   try:
     main()

@@ -37,7 +37,7 @@
 
 @@ def int:zero?. (@ n.
   0? (get1 n))
-  
+
 @@ def int:neq?. (@ m n.
   m @m0 m1.n @n0 n1.
     (& (0? m1) (0? n1)) #f

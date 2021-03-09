@@ -4,7 +4,7 @@
   (@@list e.4 8 1 5 1 6)
 @@ def %ex2.
   (@@list e.2 3 4 2)
-  
+
 @@ def main. (list:_print
   (@@list e.
     (list:_print (list:getSlice %ex1 2 3))

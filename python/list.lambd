@@ -28,7 +28,7 @@
 
 @@ def list:get. (@ list i.
   get0 (list:deln list i #e))
-        
+
 @@ def list:setSlice. (@ list i n list2.
   (list:popn list i 1) @sec0 sec1.
     list:append sec1 (list:append list2
