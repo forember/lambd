@@ -13,21 +13,25 @@ import sys
 class LambdaSyntaxError (Exception):
   pass
 
+# Expression Types
 EXPR = 0
 VAR  = 1
 APPL = 2
 ABST = 3
 
 def parse(s):
+  '''Parse a source string into an abstract syntax tree.'''
   toks = tokenize(s)
   tree = parse_partree(toks)
   return parse_parexpr(tree)
 
 token_re = re.compile(r'[@.()]|[^\s@.()]+')
 def tokenize(s):
+  '''Split a source string into tokens.'''
   return token_re.findall(s)
 
 def parse_partree(toks):
+  '''Identify parentheticals and tag them with EXPR.'''
   tree = [EXPR]
   branchdeque = deque()
   branch = tree
@@ -44,20 +48,24 @@ def parse_partree(toks):
 
 var_re = re.compile(r'[^\s@.()]+$')
 def isvar(tok):
+  '''Is the token the name of a variable?'''
   try:
     return bool(var_re.match(tok))
   except:
     return False
 
 def parse_parexpr(tree):
+  '''Convert a token string with parentheticals identified into an AST.'''
   #print(tree); print()
   if len(tree) == 2:
+    # Variable
     if isvar(tree[1]):
       tree[0] = VAR
     else:
       #print('parse expression')
       tree[:] = parse_parexpr(tree[1])
   elif tree[1] == '@':
+    # Extension/Abstraction Prep
     tree[0] = ABST
     doti = tree.index('.')
     extra_params = tree[3:doti]
@@ -65,11 +73,13 @@ def parse_parexpr(tree):
     tree[1] = tree[2]
     tree[2:] = [None]
     if tree[1] == '@':
+      # Extensions
       import importlib
       ext = importlib.import_module('ext_' + extra_params[0])
       #print('extension parse')
       ext.ext_parexpr(tree, extra_params, body)
     else:
+      # Abstraction
       branch = tree
       for param in extra_params:
         if isvar(param):
@@ -80,6 +90,7 @@ def parse_parexpr(tree):
       #print('parse after dot')
       branch[2] = parse_parexpr(body)
   else:
+    # Application
     tree[0] = APPL
     if '@' in tree:
       lambdai = tree.index('@')
@@ -103,6 +114,7 @@ def parse_parexpr(tree):
   return tree
 
 def unparse(ast):
+  '''Convert an AST back to a source string.'''
   s = ''
   type = ast[0]
   if type == VAR:
@@ -142,6 +154,7 @@ num_re = re.compile( \
   r'(?P<nva>$|(?=[\s@.()]))?' \
   )
 def restore_nums(s):
+  '''Identify church numeral structures in a source string and replace them.'''
   i = 0
   while True:
     m = num_re.search(s, i)
@@ -174,6 +187,7 @@ def restore_nums(s):
   return s
 
 def repr_ast(ast, indent=''):
+  '''Represent an abstract syntax tree with indentation.'''
   type = ast[0]
   if type == VAR:
     return '{}[VAR, {!r}]'.format(indent, ast[1])
@@ -191,6 +205,7 @@ class StructureError (ReductionError):
   pass
 
 def FV(expr):
+  '''Identify free variables in an abstract syntax tree.'''
   type = expr[0]
   if type == VAR:
     return {expr[1]}
