@@ -1,0 +1,8 @@
+@@ include math.
+@@ include list.
+
+(list:_print
+  (@@list e.
+    (math:fact 5)
+    (math:div 15 4)))
+

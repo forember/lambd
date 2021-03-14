@@ -8,9 +8,15 @@ Stability   : experimental
 Portability : portable
 -}
 
+module Main where
+
 import Data.List
+import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Debug.Trace
+import System.Environment
+import System.IO
 import Text.Regex.TDFA
 import Text.Show
 
@@ -105,8 +111,9 @@ genListBody :: String -> [ParExpression] -> Expression
 -- ^The 'genListBody' function generates the body of a list for the @list@ extension.
 genListBody endName parExprs
   | null parExprs = Var endName
-  | otherwise = Abst "f" (Appl (Appl (Var "f") (parseParExpr [head parExprs]))
-                               (genListBody endName (tail parExprs)))
+  | otherwise = Abst "f" (Appl (Appl (Var "f")
+      (parseParExpr (Inc {includes=[], included=Set.empty}) [head parExprs]))
+    (genListBody endName (tail parExprs)))
 
 genList :: String -> [ParExpression] -> Expression
 -- ^The 'genList' function generates a list for the @list@ extension.
@@ -127,50 +134,72 @@ genApplication [expr] = expr
 genApplication [exprA, exprB] = Appl exprA exprB
 genApplication exprs = Appl (genApplication (init exprs)) (last exprs)
 
-parseExtension :: String -> ([ParExpression], [ParExpression]) -> Expression
+data Inc = Inc {includes::[(String, [ParExpression])], included::Set String}
+
+parseExtension :: Inc -> String -> ([ParExpression], [ParExpression]) -> Expression
 -- ^The 'parseExtension' function handles extension to the lambda calculus syntax.
-parseExtension "b" (extra, body) =
+parseExtension inc "b" (extra, body) =
   let Tok extraname = if null extra then Tok "" else head extra
       name = "@b" ++ if null extra then "" else " " ++ extraname
-  in  Appl (Abst name (Var name)) (parseParExpr body)
-parseExtension "c" (extra, body) = parseParExpr (tail body)
-parseExtension "churchnums" (extra, body) =
-  let parsed = parseParExpr body
+  in  Appl (Abst name (Var name)) (parseParExpr inc body)
+parseExtension inc "c" (extra, body) = parseParExpr inc (tail body)
+parseExtension inc "churchnums" (extra, body) =
+  let parsed = parseParExpr inc body
   in  applyChurchNums (Set.toList (freeVars parsed)) parsed
-parseExtension "def" (extra, body) =
+parseExtension inc "def" (extra, body) =
   let Tok name = head extra
-  in  Appl (Abst name (parseParExpr (tail body))) (parseParExpr [head body])
-parseExtension "include" (extra, body) =
+      exprA = parseParExpr inc (tail body)
+      exprB = parseParExpr inc [head body]
+  in  Appl (Abst name exprA) exprB
+parseExtension inc "include" (extra, body) =
   let Tok name = head extra
-  in  parseParExpr body -- TODO
-parseExtension "list" (extra, body) =
+      newIncluded = Set.insert name (included inc)
+      newInc = Inc {includes=includes inc, included=newIncluded}
+      fullBody = maybe body (\i -> body ++ i) (lookup name (includes inc))
+  in  parseParExpr newInc fullBody
+parseExtension inc "list" (extra, body) =
   let Tok name = head extra
   in  genList name body
-parseExtension _ (extra, body) = parseParExpr body
+parseExtension inc _ (extra, body) = parseParExpr inc body
 
-parseParExpr :: [ParExpression] -> Expression
+parseParExpr :: Inc -> [ParExpression] -> Expression
 -- ^The 'parseParExpr' function generates an abstract syntax tree from a parenthetical token list.
-parseParExpr [Par tree] = parseParExpr tree
+parseParExpr inc [Par tree] = parseParExpr inc tree
 -- Variable
-parseParExpr [Tok tok] =
-  if isVar tok
-    then Var tok
-    else parseParExpr [Tok tok]
+parseParExpr inc [Tok tok]
+  | isVar tok = Var tok
+  | otherwise = parseParExpr inc [Tok tok]
 -- Extension
-parseParExpr ((Tok "@"):(Tok "@"):(Tok extension):tree) =
-  parseExtension extension (splitTree "." tree)
+parseParExpr inc ((Tok "@"):(Tok "@"):(Tok extension):tree) =
+  parseExtension inc extension (splitTree "." tree)
 -- Abstraction
-parseParExpr ((Tok "@"):tree) =
+parseParExpr inc ((Tok "@"):tree) =
   let (extra, body) = splitTree "." tree
-  in  genAbstraction extra (parseParExpr body)
+  in  genAbstraction extra (parseParExpr inc body)
 -- Application
-parseParExpr tree =
-  if elem (Tok "@") tree
-  then let (beforeLambda, afterLambda) = splitTree "@" tree
-           (extra, body) = splitTree "." afterLambda
-       in  genApplication ((map (\p -> parseParExpr [p]) beforeLambda
-                        ++ [genAbstraction extra (parseParExpr body)]))
-  else genApplication (map (\p -> parseParExpr [p]) tree)
+parseParExpr inc tree
+  | elem (Tok "@") tree =
+    let (beforeLambda, afterLambda) = splitTree "@" tree
+        (extra, body) = splitTree "." afterLambda
+    in  genApplication (map (\p -> parseParExpr inc [p]) beforeLambda
+                     ++ [genAbstraction extra (parseParExpr inc body)])
+  | otherwise =
+    genApplication (map (\p -> parseParExpr inc [p]) tree)
+
+preLoadIncludes :: Set String -> [ParExpression] -> IO [(String, [ParExpression])]
+-- ^The 'preLoadIncludes' function preloads all the included files.
+preLoadIncludes inc ((Tok "@"):(Tok "@"):(Tok "include"):(Tok name):tree) = 
+  let newInc = (Set.insert name inc)
+  in  do
+      h <- openFile (name ++ ".lambd") ReadMode
+      contents <- hGetContents h
+      parExprs <- return (fst (parseParTree (tokenize contents)))
+      subIncludes <- preLoadIncludes newInc parExprs
+      allInc <- return (Set.union newInc (Set.fromList (map fst subIncludes)))
+      postIncludes <- preLoadIncludes allInc tree
+      return ([(name, parExprs)] ++ subIncludes ++ postIncludes)
+preLoadIncludes inc [] = return []
+preLoadIncludes inc (_:tree) = preLoadIncludes inc tree
 
 unparse :: Expression -> String
 -- ^The 'unparse' function converts an 'Expression' back to a source string.
@@ -185,14 +214,19 @@ unparse (Appl exprA exprB) = (unparse exprA) ++ "(" ++ (unparse exprB) ++ ")"
 
 isChurchNumBody :: String -> String -> Int -> Expression -> Maybe Int
 -- ^The 'isChurchNumBody' function identifies the body of a church numeral.
-isChurchNumBody f x i (Appl (Var a) expr) =
-  if f == a then isChurchNumBody f x (i + 1) expr else Nothing
-isChurchNumBody f x i (Var a) = if x == a then Just i else Nothing
+isChurchNumBody f x i (Appl (Var a) expr)
+  | f == a = isChurchNumBody f x (i + 1) expr
+  | otherwise = Nothing
+isChurchNumBody f x i (Var a)
+  | x == a = Just i
+  | otherwise = Nothing
 isChurchNumBody f x i expr = Nothing
 
 restoreNums :: Expression -> Expression
 -- ^The 'restoreNums' function identifies church numerals and replaces them with variable names.
-restoreNums (Abst a (Var b)) = if a == b then (Var "1") else (Abst a (Var b))
+restoreNums (Abst a (Var b))
+  | a == b = Var "1"
+  | otherwise = Abst a (Var b)
 restoreNums (Abst a (Abst b body)) =
   maybe (Abst a (restoreNums (Abst b body))) (\n -> Var (show n))
       (isChurchNumBody a b 0 body)
@@ -216,6 +250,101 @@ prettyExpr expr = indentPrettyExpr expr ""
 
 parse :: String -> Expression
 -- ^The 'parse' function parses a source string into an abstract syntax tree.
-parse s = parseParExpr (parseParTree (tokenize s))
+parse s =
+  let (parExpr, _) = parseParTree (tokenize s)
+  in  parseParExpr (Inc {includes=[], included=Set.empty}) parExpr
 
 -- Semantics ------------------------------------------------------------------ -------------------
+
+rfvSubstitute :: Expression -> String -> Expression -> Set String -> Expression
+rfvSubstitute expr@(Var ename) name rexpr rfv
+  | ename == name = rexpr
+  | otherwise = expr
+rfvSubstitute (Appl exprA exprB) name rexpr rfv =
+  Appl ((rfvSubstitute exprA) name rexpr rfv)
+       ((rfvSubstitute exprB) name rexpr rfv)
+rfvSubstitute expr@(Abst param _) name rexpr rfv
+  | param == name = expr
+  | otherwise =
+    let paramFree = Set.member param rfv
+        alpha = alphaConvert expr (param ++ "_")
+        (Abst aname abody) = if paramFree then alpha else expr
+    in  Abst aname (rfvSubstitute abody name rexpr rfv)
+
+substitute :: Expression -> String -> Expression -> Expression
+substitute expr@(Appl (Abst "@b e" _) _) name rexpr =
+  substitute (fullReduce expr) name rexpr
+substitute expr@(Appl (Abst "@b b" _) _) name rexpr =
+  substitute (fullReduce expr) name rexpr
+substitute expr name rexpr@(Appl (Abst "@b b" _) _) =
+  substitute expr name (fullReduce rexpr)
+substitute expr name rexpr@(Appl (Abst "@b" _) _) =
+  substitute expr name (fullReduce rexpr)
+substitute expr name rexpr =
+  rfvSubstitute expr name rexpr (freeVars rexpr)
+
+alphaConvert :: Expression -> String -> Expression
+alphaConvert (Abst name body) newName =
+  Abst newName (substitute body name (Var newName))
+alphaConvert expr _ = expr
+
+betaReduce :: Expression -> (Bool, Expression)
+betaReduce (Appl (Abst name body) rexpr) =
+  (True, substitute body name rexpr)
+betaReduce expr = (False, expr)
+
+etaConvert :: Expression -> (Bool, Expression)
+etaConvert expr@(Abst param (Appl inner (Var name)))
+  | param == name && Set.notMember param (freeVars inner) = (True, inner)
+  | otherwise = (False, expr)
+etaConvert expr = (False, expr)
+
+reduceExpr :: Expression -> (Bool, Expression)
+reduceExpr expr@(Var name) = (False, expr)
+reduceExpr expr@(Abst name body) =
+  let (success, eta) = etaConvert expr
+  in  if success
+      then (True, eta)
+      else let (was, reduced) = reduceExpr body
+           in  (was, Abst name reduced)
+reduceExpr expr@(Appl exprA exprB) =
+  let (success, beta) = betaReduce expr
+  in  if success
+      then (True, beta)
+      else let (wasA, reducedA) = reduceExpr exprA
+           in  if wasA
+               then (True, Appl reducedA exprB)
+               else let (wasB, reducedB) = reduceExpr exprB
+                    in  (wasB, Appl exprA reducedB)
+
+fullReduce :: Expression -> Expression
+fullReduce expr =
+  let (was, reduced) = reduceExpr expr
+  in  if was then fullReduce reduced else expr
+
+roundTrip :: String -> String
+roundTrip s = unparse (restoreNums (fullReduce (parse s)))
+
+fullReduceDebug :: Expression -> Expression
+fullReduceDebug expr =
+  let (was, reduced) = reduceExpr expr
+  in  if was then trace (unparse reduced) (fullReduce reduced) else expr
+
+roundTripDebug :: String -> ()
+roundTripDebug s = trace (unparse (restoreNums (fullReduceDebug (parse s)))) ()
+
+-- Testing -------------------------------------------------------------------- -------------------
+
+main :: IO ()
+main = do
+  args <- getArgs
+  h <- if length args > 0
+       then openFile ((head args) ++ ".lambd") ReadMode
+       else return stdin
+  contents <- hGetContents h
+  parExprs <- return (fst (parseParTree (tokenize contents)))
+  plIncludes <- preLoadIncludes Set.empty parExprs
+  expr <- return (parseParExpr
+                  (Inc {includes=plIncludes, included=Set.empty})
+                  parExprs)
+  putStrLn ("@@churchnums." ++ (unparse (restoreNums (fullReduce expr))))

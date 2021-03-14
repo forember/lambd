@@ -285,6 +285,7 @@ def reduce_full(expr, ct_cycles=False):
   while reduce_expr(expr):
     ct += 1
     #print('@@churchnums.' + restore_nums(unparse(expr))); print()
+    print(unparse(expr))
   cycle_ctr += ct
   if ct_cycles:
     ct = cycle_ctr

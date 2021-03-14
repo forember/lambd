@@ -1,0 +1,50 @@
+@@ include standard.
+
+@@ def int:abs. (@ n.
+  n @n0.pair #f)
+
+@@ def int:neg. (@ n.
+  n @n0.pair (! n0))
+
+@@ def int:inc. (@ n.
+  n @n0 n1.(0? n1)
+    (pair #f 1)
+    (pair n0
+      ((n0 -- ++) n1)))
+
+@@ def int:add. (@ m n.
+  m @m0 m1.n @n0 n1.pair
+    ((<= m1 n1) n0 m0)
+    ((^ m0 n0)
+      ((<= m1 n1)
+        (- n1 m1)
+        (- m1 n1))
+      (+ m1 n1)))
+
+@@ def int:dec. (@ n.
+  n @n0 n1.(0? n1)
+    (pair #t 1)
+    (pair n0
+      ((n0 ++ --) n1)))
+
+@@ def int:sub. (@ m n.
+  int:add m (int:neg n))
+
+@@ def int:mul. (@ m n.
+  m @m0 m1.n @n0 n1.pair
+    (^ m0 n0)
+    (* m1 n1))
+
+@@ def int:zero?. (@ n.
+  0? (get1 n))
+
+@@ def int:neq?. (@ m n.
+  m @m0 m1.n @n0 n1.
+    (& (0? m1) (0? n1)) #f
+      (| (^ m0 n0) (= m1 n1)))
+
+@@ def int:leq?. (@ m n.
+  m @m0 m1.n @n0 n1.
+    (^ m0 n0)
+      ((& (0? m1) (0? n1)) #t m0)
+      ((m0 >= <=) m1 n1))

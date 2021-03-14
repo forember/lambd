@@ -1,0 +1,13 @@
+@@ include standard.
+
+@@ def math:fact. (Y @Y_fact n.
+  (0? n) 1
+    (* (Y_fact (@@b.-- n)) n))
+
+@@ def math:div. (@ n d.
+  (0? d) #nil
+    ((Y @Y_div d q r.
+        (>= r d)
+          (Y_div d (@@b.++ q) (@@b.- r d))
+          (pair q r))
+      d 0 n))
