@@ -14,11 +14,16 @@ import Data.List
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Debug.Trace
 import System.Environment
 import System.IO
 import Text.Regex.TDFA
 import Text.Show
+
+-- import Debug.Trace
+--
+trace :: String -> a -> a
+trace string expr = expr
+--}
 
 -- Syntax --------------------------------------------------------------------- -------------------
 
@@ -111,9 +116,10 @@ genListBody :: String -> [ParExpression] -> Expression
 -- ^The 'genListBody' function generates the body of a list for the @list@ extension.
 genListBody endName parExprs
   | null parExprs = Var endName
-  | otherwise = Abst "f" (Appl (Appl (Var "f")
-      (parseParExpr (Inc {includes=[], included=Set.empty}) [head parExprs]))
-    (genListBody endName (tail parExprs)))
+  | otherwise =
+    Abst "f" (Appl (Appl (Var "f")
+        (trace ("==> genListBody: " ++ (prettyParExpr (Par [head parExprs]))) (parseParExpr (Inc {includes=[], included=Set.empty}) [head parExprs])))
+      (genListBody endName (tail parExprs)))
 
 genList :: String -> [ParExpression] -> Expression
 -- ^The 'genList' function generates a list for the @list@ extension.
@@ -141,50 +147,50 @@ parseExtension :: Inc -> String -> ([ParExpression], [ParExpression]) -> Express
 parseExtension inc "b" (extra, body) =
   let Tok extraname = if null extra then Tok "" else head extra
       name = "@b" ++ if null extra then "" else " " ++ extraname
-  in  Appl (Abst name (Var name)) (parseParExpr inc body)
-parseExtension inc "c" (extra, body) = parseParExpr inc (tail body)
+  in  Appl (Abst name (Var name)) (trace ("==> parseExtension b: " ++ (prettyParExpr (Par body))) (parseParExpr inc body))
+parseExtension inc "c" (extra, body) = trace ("==> parseExtension c: " ++ (prettyParExpr (Par (tail body)))) (parseParExpr inc (tail body))
 parseExtension inc "churchnums" (extra, body) =
-  let parsed = parseParExpr inc body
+  let parsed = trace ("==> parseExtension churchnums: " ++ (prettyParExpr (Par body))) (parseParExpr inc body)
   in  applyChurchNums (Set.toList (freeVars parsed)) parsed
 parseExtension inc "def" (extra, body) =
   let Tok name = head extra
-      exprA = parseParExpr inc (tail body)
-      exprB = parseParExpr inc [head body]
+      exprA = trace ("==> parseExtension def (A): " ++ (prettyParExpr (Par (tail body)))) (parseParExpr inc (tail body))
+      exprB = trace ("==> parseExtension def (B): " ++ (prettyParExpr (Par [head body]))) (parseParExpr inc [head body])
   in  Appl (Abst name exprA) exprB
 parseExtension inc "include" (extra, body) =
   let Tok name = head extra
       newIncluded = Set.insert name (included inc)
       newInc = Inc {includes=includes inc, included=newIncluded}
-      fullBody = maybe body (\i -> body ++ i) (lookup name (includes inc))
-  in  parseParExpr newInc fullBody
+      fullBody = maybe body (\i -> i ++ body) (lookup name (includes inc))
+  in  trace ("==> parseExtension include: " ++ (prettyParExpr (Par fullBody))) (parseParExpr newInc fullBody)
 parseExtension inc "list" (extra, body) =
   let Tok name = head extra
   in  genList name body
-parseExtension inc _ (extra, body) = parseParExpr inc body
+parseExtension inc _ (extra, body) = trace ("==> parseExtension _: " ++ (prettyParExpr (Par body))) (parseParExpr inc body)
 
 parseParExpr :: Inc -> [ParExpression] -> Expression
 -- ^The 'parseParExpr' function generates an abstract syntax tree from a parenthetical token list.
-parseParExpr inc [Par tree] = parseParExpr inc tree
+parseParExpr inc [Par tree] = trace ("==> parseParExpr Par: " ++ (prettyParExpr (Par tree))) (parseParExpr inc tree)
 -- Variable
 parseParExpr inc [Tok tok]
   | isVar tok = Var tok
-  | otherwise = parseParExpr inc [Tok tok]
+  | otherwise = trace ("==> parseParExpr Tok: " ++ (prettyParExpr (Par [Tok tok]))) (parseParExpr inc [Tok tok])
 -- Extension
 parseParExpr inc ((Tok "@"):(Tok "@"):(Tok extension):tree) =
   parseExtension inc extension (splitTree "." tree)
 -- Abstraction
 parseParExpr inc ((Tok "@"):tree) =
   let (extra, body) = splitTree "." tree
-  in  genAbstraction extra (parseParExpr inc body)
+  in  genAbstraction extra (trace ("==> parseParExpr Abst: " ++ (prettyParExpr (Par body))) (parseParExpr inc body))
 -- Application
 parseParExpr inc tree
   | elem (Tok "@") tree =
     let (beforeLambda, afterLambda) = splitTree "@" tree
         (extra, body) = splitTree "." afterLambda
-    in  genApplication (map (\p -> parseParExpr inc [p]) beforeLambda
+    in  genApplication ((map (\p -> trace ("==> parseParExpr Appl @: " ++ (prettyParExpr (Par [p]))) (parseParExpr inc [p])) beforeLambda)
                      ++ [genAbstraction extra (parseParExpr inc body)])
   | otherwise =
-    genApplication (map (\p -> parseParExpr inc [p]) tree)
+    genApplication (map (\p -> trace ("==> parseParExpr Appl /@: " ++ (prettyParExpr (Par [p]))) (parseParExpr inc [p])) tree)
 
 preLoadIncludes :: Set String -> [ParExpression] -> IO [(String, [ParExpression])]
 -- ^The 'preLoadIncludes' function preloads all the included files.
@@ -251,8 +257,8 @@ prettyExpr expr = indentPrettyExpr expr ""
 parse :: String -> Expression
 -- ^The 'parse' function parses a source string into an abstract syntax tree.
 parse s =
-  let (parExpr, _) = parseParTree (tokenize s)
-  in  parseParExpr (Inc {includes=[], included=Set.empty}) parExpr
+  let (parExprs, _) = parseParTree (tokenize s)
+  in  trace ("==> parse: " ++ (prettyParExpr (Par parExprs))) (parseParExpr (Inc {includes=[], included=Set.empty}) parExprs)
 
 -- Semantics ------------------------------------------------------------------ -------------------
 
@@ -339,12 +345,12 @@ main :: IO ()
 main = do
   args <- getArgs
   h <- if length args > 0
-       then openFile ((head args) ++ ".lambd") ReadMode
+       then openFile (head args) ReadMode
        else return stdin
   contents <- hGetContents h
   parExprs <- return (fst (parseParTree (tokenize contents)))
   plIncludes <- preLoadIncludes Set.empty parExprs
-  expr <- return (parseParExpr
+  expr <- return (trace ("==> main: " ++ (prettyParExpr (Par parExprs))) (parseParExpr
                   (Inc {includes=plIncludes, included=Set.empty})
-                  parExprs)
+                  parExprs))
   putStrLn ("@@churchnums." ++ (unparse (restoreNums (fullReduce expr))))

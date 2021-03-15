@@ -3,6 +3,6 @@
 
 (list:_print
   (@@list e.
-    (math:fact 5)
-    (math:div 15 4)))
+    (math:fact 7)
+    (math:div 150 40)))
 
