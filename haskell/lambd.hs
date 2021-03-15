@@ -263,6 +263,7 @@ parse s =
 -- Semantics ------------------------------------------------------------------ -------------------
 
 rfvSubstitute :: Expression -> String -> Expression -> Set String -> Expression
+-- ^The 'rfvSubstitute' function is used inernally by 'subtitute' for precalculated free variables.
 rfvSubstitute expr@(Var ename) name rexpr rfv
   | ename == name = rexpr
   | otherwise = expr
@@ -278,6 +279,7 @@ rfvSubstitute expr@(Abst param _) name rexpr rfv
     in  Abst aname (rfvSubstitute abody name rexpr rfv)
 
 substitute :: Expression -> String -> Expression -> Expression
+-- ^The 'substitute' function substitutes an expression's free variable for another expression.
 substitute expr@(Appl (Abst "@b e" _) _) name rexpr =
   substitute (fullReduce expr) name rexpr
 substitute expr@(Appl (Abst "@b b" _) _) name rexpr =
@@ -290,22 +292,26 @@ substitute expr name rexpr =
   rfvSubstitute expr name rexpr (freeVars rexpr)
 
 alphaConvert :: Expression -> String -> Expression
+-- ^The 'alphaConvert' function renames the parameter of an abstraction.
 alphaConvert (Abst name body) newName =
   Abst newName (substitute body name (Var newName))
 alphaConvert expr _ = expr
 
 betaReduce :: Expression -> (Bool, Expression)
+-- ^The 'betaReduce' function applies an expression to an abstraction.
 betaReduce (Appl (Abst name body) rexpr) =
   (True, substitute body name rexpr)
 betaReduce expr = (False, expr)
 
 etaConvert :: Expression -> (Bool, Expression)
+-- ^The 'etaConvert' function performs eta conversion / reduction on an expression.
 etaConvert expr@(Abst param (Appl inner (Var name)))
   | param == name && Set.notMember param (freeVars inner) = (True, inner)
   | otherwise = (False, expr)
 etaConvert expr = (False, expr)
 
 reduceExpr :: Expression -> (Bool, Expression)
+-- ^The 'reduceExpr' function performs a single reduction step.
 reduceExpr expr@(Var name) = (False, expr)
 reduceExpr expr@(Abst name body) =
   let (success, eta) = etaConvert expr
@@ -324,6 +330,7 @@ reduceExpr expr@(Appl exprA exprB) =
                     in  (wasB, Appl exprA reducedB)
 
 fullReduce :: Expression -> Expression
+-- ^The 'fullReduce' function reduces an expression as far as it can.
 fullReduce expr =
   let (was, reduced) = reduceExpr expr
   in  if was then fullReduce reduced else expr
